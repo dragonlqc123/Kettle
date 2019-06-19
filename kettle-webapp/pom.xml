@@ -10,6 +10,12 @@
 	<artifactId>kettle-webapp</artifactId>
 	<version>1.0.0</version>
 	<packaging>war</packaging>
+	
+	<properties>
+	    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+	    <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
+	</properties>
 
 	<build>
 		<plugins>
@@ -39,15 +45,8 @@
 		<dependency>
 			<groupId>org.flhy.ext</groupId>
 			<artifactId>kettle-ext</artifactId>
-			<version>0.0.1</version>
+			<version>1.0.0</version>
 			<type>jar</type>
-			<scope>compile</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>org.flhy</groupId>
-			<artifactId>kettle-scheduler</artifactId>
-			<version>0.0.1</version>
 		</dependency>
 	</dependencies>
 
