@@ -14,9 +14,7 @@ UpdateDialog = Ext.extend(KettleTabDialog, {
 	        forceSelection: true,
 	        triggerAction: 'all',
 	        selectOnFocus:true,
-	        store: getActiveGraph().getDatabaseStore(),
-			name: 'connection',
-			value: cell.getAttribute('connection')
+	        store: getActiveGraph().getDatabaseStore()
 		});
 		
 		var onDatabaseCreate = function(dialog) {
@@ -25,13 +23,13 @@ UpdateDialog = Ext.extend(KettleTabDialog, {
             dialog.close();
 		};
 		
-		var wSchema = new Ext.form.TextField({ flex: 1, value: cell.getAttribute('schema')});
-		var wTable = new Ext.form.TextField({ flex: 1, value: cell.getAttribute('table')});
-		var wCommit = new Ext.form.TextField({ fieldLabel: '提交记录数量', anchor: '-10', value: cell.getAttribute('commit')});
-		var wBatch = new Ext.form.Checkbox({ fieldLabel: '批量更新', checked: cell.getAttribute('use_batch') == 'Y' });
-		var wSkipLookup = new Ext.form.Checkbox({ fieldLabel: '跳过查询', checked: cell.getAttribute('skip_lookup') == 'Y' });
-		var wIgnore = new Ext.form.Checkbox({ fieldLabel: '忽略查询失败', checked: cell.getAttribute('error_ignored') == 'Y' });
-		var wIgnoreFlagField = new Ext.form.TextField({ fieldLabel: '标志字段(key found)', anchor: '-10', value: cell.getAttribute('ignore_flag_field')});
+		var wSchema = new Ext.form.TextField({ flex: 1});
+		var wTable = new Ext.form.TextField({ flex: 1});
+		var wCommit = new Ext.form.TextField({ fieldLabel: '提交记录数量', anchor: '-10'});
+		var wBatch = new Ext.form.Checkbox({ fieldLabel: '批量更新'});
+		var wSkipLookup = new Ext.form.Checkbox({ fieldLabel: '跳过查询' });
+		var wIgnore = new Ext.form.Checkbox({ fieldLabel: '忽略查询失败', checked: true});
+		var wIgnoreFlagField = new Ext.form.TextField({ fieldLabel: '标志字段(key found)', anchor: '-10'});
 		
 		var searchStore = new Ext.data.JsonStore({
 			fields: ['field', 'condition', 'name', 'name2'],
@@ -42,20 +40,49 @@ UpdateDialog = Ext.extend(KettleTabDialog, {
 			data: Ext.decode(cell.getAttribute('updateFields')) || []
 		});
 		
-		this.getValues = function(){
-			return {
-				connection: wConnection.getValue(),
-				schema: wSchema.getValue(),
-				table: wTable.getValue(),
-				commit: wCommit.getValue(),
-				use_batch: wBatch.getValue() ? "Y" : "N",
-				skip_lookup: wSkipLookup.getValue() ? "Y" : "N",
-				error_ignored: wIgnore.getValue() ? "Y" : "N",
-				ignore_flag_field: wIgnoreFlagField.getValue(),		
-				searchFields: Ext.encode(searchStore.toJson()),
-				updateFields: Ext.encode(updateStore.toJson())
-			};
+		this.initData = function() {
+			var cell = this.getInitData();
+			UpdateDialog.superclass.initData.apply(this, [cell]);
+			
+			wConnection.setValue(cell.getAttribute('connection'));
+			wSchema.setValue(cell.getAttribute('schema'));
+			wTable.setValue(cell.getAttribute('table'));
+			wCommit.setValue(cell.getAttribute('commit'));
+			wIgnoreFlagField.setValue(cell.getAttribute('ignore_flag_field'));
+			
+			wBatch.setValue('Y' == cell.getAttribute('use_batch'));
+			wSkipLookup.setValue('Y' == cell.getAttribute('skip_lookup'));
+			wIgnore.setValue('Y' == cell.getAttribute('error_ignored'));
+			
+			searchStore.loadData(Ext.decode(cell.getAttribute('searchFields')));
+			updateStore.loadData(Ext.decode(cell.getAttribute('updateFields')));
 		};
+		
+		this.saveData = function(){
+			var data = {};
+			data.connection = wConnection.getValue();
+			data.schema = wSchema.getValue();
+			data.table = wTable.getValue();
+			data.commit = wCommit.getValue();
+			data.ignore_flag_field = wIgnoreFlagField.getValue();
+			
+			data.use_batch = wBatch.getValue() ? 'Y' : 'N';
+			data.skip_lookup = wSkipLookup.getValue() ? 'Y' : 'N';
+			data.error_ignored = wIgnore.getValue() ? 'Y' : 'N';
+			
+			data.searchFields = Ext.encode(searchStore.toJson());
+			data.updateFields = Ext.encode(updateStore.toJson());
+			
+			return data;
+		};
+		
+		wIgnore.on('check', function(cb, checked) {
+			if(checked) {
+				wIgnoreFlagField.enable();
+			} else {
+				wIgnoreFlagField.disable();
+			}
+		});
 		
 		this.tabItems = [{
 			title: '基本配置',
@@ -103,44 +130,31 @@ UpdateDialog = Ext.extend(KettleTabDialog, {
 						me.selectTable(wConnection, wSchema, wTable);
 					}
 				}]
-			}, wCommit, wBatch, wIgnore, wSkipLookup, wIgnoreFlagField]
+			}, wCommit, wBatch, wSkipLookup, wIgnore, wIgnoreFlagField]
 		}, {
 			title: '查询字段',
-			xtype: 'editorgrid',
+			xtype: 'KettleEditorGrid',
 			region: 'center',
-			tbar: [{
-				text: '新增字段', handler: function(btn) {
-					var grid = btn.findParentByType('editorgrid');
-					var RecordType = grid.getStore().recordType;
-	                var rec = new RecordType({  field: '', condition: '',  name: ''  });
-	                grid.stopEditing();
-	                grid.getStore().insert(0, rec);
-	                grid.startEditing(0, 0);
-				}
-			},{
-				text: '删除字段', handler: function(btn) {
-					var sm = btn.findParentByType('editorgrid').getSelectionModel();
-					if(sm.hasSelection()) {
-						var row = sm.getSelectedCell()[0];
-						searchStore.removeAt(row);
+			menuAdd: function(menu) {
+				menu.insert(0, {
+					text: '获取字段', handler: function() {
+						getActiveGraph().inputOutputFields(cell.getAttribute('label'), true, function(store) {
+							searchStore.merge(store, [{name: 'field', value: ''}, {name:'condition', value:'='}, 'name', {name: 'name2', value: ''}]);
+						});
 					}
-				}
-			}, {
-				text: '获取字段', handler: function() {
-					getActiveGraph().inputOutputFields(cell.getAttribute('label'), true, function(store) {
-						searchStore.merge(store, ['name', {name: 'condition', value: '='}, {name:'field', field: 'name'}]);
-					});
-				}
-			}],
+				});
+				
+				menu.insert(1, '-');
+			},
 			columns: [new Ext.grid.RowNumberer(), {
 				header: '表字段', dataIndex: 'field', width: 100, editor: new Ext.form.ComboBox({
 					displayField: 'name',
 					valueField: 'name',
 					typeAhead: true,
-			        forceSelection: true,
 			        triggerAction: 'all',
 			        selectOnFocus:true,
-					store: getActiveGraph().tableFields(wConnection.getValue(), wSchema.getValue(), wTable.getValue()),
+			        editable: true,
+					store: this.getTableColumns(wConnection, wSchema, wTable),
 					listeners : {
 					     beforequery: function(qe){
 					    	 delete qe.combo.lastQuery;
@@ -174,8 +188,8 @@ UpdateDialog = Ext.extend(KettleTabDialog, {
 				header: '流里的字段1', dataIndex: 'name', width: 100, editor: new Ext.form.ComboBox({
 					displayField: 'name',
 					valueField: 'name',
+					editable: true,
 					typeAhead: true,
-			        forceSelection: true,
 			        triggerAction: 'all',
 			        selectOnFocus:true,
 					store: getActiveGraph().inputFields(cell.getAttribute('label'))
@@ -184,8 +198,8 @@ UpdateDialog = Ext.extend(KettleTabDialog, {
 				header: '流里的字段2', dataIndex: 'name2', width: 100, editor: new Ext.form.ComboBox({
 					displayField: 'name',
 					valueField: 'name',
+					editable: true,
 					typeAhead: true,
-			        forceSelection: true,
 			        triggerAction: 'all',
 			        selectOnFocus:true,
 					store: getActiveGraph().inputFields(cell.getAttribute('label'))
@@ -194,42 +208,27 @@ UpdateDialog = Ext.extend(KettleTabDialog, {
 			store: searchStore
 		}, {
 			title: '更新字段',
-			xtype: 'editorgrid',
-			tbar: [{
-				text: '新增字段', handler: function(btn) {
-					var grid = btn.findParentByType('editorgrid');
-					var RecordType = grid.getStore().recordType;
-	                var rec = new RecordType({  name: '', rename: '' });
-	                grid.stopEditing();
-	                grid.getStore().insert(0, rec);
-	                grid.startEditing(0, 0);
-				}
-			},{
-				text: '删除字段', handler: function(btn) {
-					var sm = btn.findParentByType('editorgrid').getSelectionModel();
-					if(sm.hasSelection()) {
-						var row = sm.getSelectedCell()[0];
-						searchStore.removeAt(row);
+			xtype: 'KettleEditorGrid',
+			menuAdd: function(menu) {
+				menu.insert(0, {
+					text: '获取字段', handler: function() {
+						getActiveGraph().inputOutputFields(cell.getAttribute('label'), true, function(store) {
+							updateStore.merge(store, [{name: 'name', value: ''}, {name:'rename', field: 'name'}]);
+						});
 					}
-				}
-			}, {
-				text: '获取更新字段', handler: function() {
-					getActiveGraph().inputOutputFields(cell.getAttribute('label'), true, function(store) {
-						updateStore.merge(store, ['name', {name:'rename', field: 'name'}]);
-					});
-				}
-			}, {
-				text: '编辑映射'
-			}],
+				});
+				
+				menu.insert(1, '-');
+			},
 			columns: [new Ext.grid.RowNumberer(), {
-				header: '表字段', dataIndex: 'name', width: 100, editor: new Ext.form.ComboBox({
+				header: '表字段', dataIndex: 'name', width: 200, editor: new Ext.form.ComboBox({
 					displayField: 'name',
 					valueField: 'name',
+					editable: true,
 					typeAhead: true,
-			        forceSelection: true,
 			        triggerAction: 'all',
 			        selectOnFocus:true,
-					store: getActiveGraph().tableFields(wConnection.getValue(), wSchema.getValue(), wTable.getValue()),
+					store: this.getTableColumns(wConnection, wSchema, wTable),
 					listeners : {
 					     beforequery: function(qe){
 					    	 delete qe.combo.lastQuery;
@@ -237,11 +236,11 @@ UpdateDialog = Ext.extend(KettleTabDialog, {
 					} 
 				})
 			},{
-				header: '流字段', dataIndex: 'rename', width: 100, editor: new Ext.form.ComboBox({
+				header: '流字段', dataIndex: 'rename', width: 200, editor: new Ext.form.ComboBox({
 					displayField: 'name',
 					valueField: 'name',
+					editable: true,
 					typeAhead: true,
-			        forceSelection: true,
 			        triggerAction: 'all',
 			        selectOnFocus:true,
 					store: getActiveGraph().inputFields(cell.getAttribute('label'))
@@ -251,6 +250,16 @@ UpdateDialog = Ext.extend(KettleTabDialog, {
 		}];
 		
 		UpdateDialog.superclass.initComponent.call(this);
+	},
+	
+	getTableColumns: function(wConnection, wSchema, wTable) {
+		var store = getActiveGraph().tableFields();	// update 20180806
+		store.on('beforeload', function() {
+			store.baseParams.databaseName = wConnection.getValue();
+			store.baseParams.schema = wSchema.getValue();
+			store.baseParams.table = wTable.getValue();
+		});
+		return store;
 	},
 	
 	selectSchema: function(wConnection, wSchema) {

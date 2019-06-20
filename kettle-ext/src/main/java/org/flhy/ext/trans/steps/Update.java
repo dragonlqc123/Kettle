@@ -44,8 +44,8 @@ public class Update extends AbstractStep {
 			JSONObject jsonObject = jsonArray.getJSONObject(i);
 
 			keyStream[i] = jsonObject.optString("name");
-			keyCondition[i] = jsonObject.optString("field");
-			keyLookup[i] = jsonObject.optString("condition");
+			keyCondition[i] = jsonObject.optString("condition");
+			keyLookup[i] = jsonObject.optString("field");
 			keyStream2[i] = jsonObject.optString("name2");
 		}
 
