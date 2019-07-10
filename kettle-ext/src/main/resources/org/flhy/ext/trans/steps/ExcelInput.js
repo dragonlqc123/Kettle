@@ -111,10 +111,10 @@ ExcelInputDialog = Ext.extend(KettleTabDialog, {
 						
 						var dialog = new FileExplorerWindow({extension: extension});
 						dialog.on('ok', function(path) {
-							var store = fileNamegrid.getStore();
-							fileNamegrid.stopEditing();
+							var store = wFilenameList.getStore();
+							wFilenameList.stopEditing();
 							store.insert(0, new store.recordType({name: path}));
-							fileNamegrid.startEditing(0, 1);
+							wFilenameList.startEditing(0, 1);
 							dialog.close();
 						});
 						dialog.show();						
